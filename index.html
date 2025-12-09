@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Glass 1:1 Replica</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        
+        /* Loading text */
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: sans-serif;
+            pointer-events: none;
+            mix-blend-mode: difference;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">Loading Liquid Glass...</div>
+
+    <!-- Import Map pro Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- 1. SETUP SCÉNY ---
+        const scene = new THREE.Scene();
+        
+        // Orthographic kamera je pro 2D efekty lepší než Perspective
+        const camera = new THREE.OrthographicCamera(
+            window.innerWidth / -2, window.innerWidth / 2,
+            window.innerHeight / 2, window.innerHeight / -2,
+            1, 1000
+        );
+        camera.position.z = 1;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. TRAIL CANVAS (Neviditelné plátno pro stopu myši) ---
+        // Tohle je ten trik. Kreslíme myší do 2D canvasu, a ten používáme jako mapu pro deformaci.
+        const trailCanvas = document.createElement('canvas');
+        trailCanvas.width = window.innerWidth * 0.2; // Menší rozlišení pro výkon a "blur" efekt
+        trailCanvas.height = window.innerHeight * 0.2;
+        const trailCtx = trailCanvas.getContext('2d');
+        
+        // Vytvoříme texturu z tohoto canvasu
+        const trailTexture = new THREE.CanvasTexture(trailCanvas);
+        
+        // Nastavení chování myši
+        let mouse = new THREE.Vector2(0.5, 0.5);
+        let lastMouse = new THREE.Vector2(0.5, 0.5);
+        let targetSpeed = 0;
+
+        // --- 3. SHADER MATERIÁL (To "Sklo") ---
+        // Zde se děje magie. GLSL kód pro WebGL.
+        
+        const vertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform sampler2D uImage;      // Hlavní obrázek
+            uniform sampler2D uDisplacement; // Naše trail textura
+            uniform vec2 uResolution;
+            uniform vec2 uImageRes;
+            uniform float uVelo;           // Rychlost myši (pro intenzitu)
+
+            varying vec2 vUv;
+
+            // Funkce pro zachování poměru stran obrázku (Cover size)
+            vec2 cover(vec2 uv, vec2 resolution, vec2 texResolution) {
+                vec2 s = resolution; 
+                vec2 i = texResolution; 
+                float rs = s.x / s.y;
+                float ri = i.x / i.y;
+                vec2 new = rs < ri ? vec2(i.x * s.y / i.y, s.y) : vec2(s.x, i.y * s.x / i.x);
+                vec2 offset = (rs < ri ? vec2((new.x - s.x) / 2.0, 0.0) : vec2(0.0, (new.y - s.y) / 2.0)) / new;
+                vec2 uv_c = uv * s / new + offset;
+                return uv_c;
+            }
+
+            void main() {
+                // 1. Získáme UV souřadnice opravené o poměr stran
+                vec2 uv = cover(vUv, uResolution, uImageRes);
+
+                // 2. Načteme hodnotu deformace z trail textury
+                vec4 displacement = texture2D(uDisplacement, vUv);
+                
+                // Theta je úhel deformace. Čím světlejší trail, tím větší deformace.
+                float theta = displacement.r * 2.0 * 3.14159; 
+                
+                // Síla efektu
+                vec2 dir = vec2(sin(theta), cos(theta));
+                
+                // 3. RGB Shift (Chromatic Aberration)
+                // Každý barevný kanál načteme z trochu jiného místa
+                // displacement.r ovládá sílu deformace
+                
+                float strength = displacement.r * 0.08; // Jak moc se to vlní
+
+                float r = texture2D(uImage, uv + dir * strength).r;
+                float g = texture2D(uImage, uv + dir * strength * 0.5).g; // Zelená se hýbe méně
+                float b = texture2D(uImage, uv + dir * strength * 0.2).b; // Modrá skoro vůbec
+
+                gl_FragColor = vec4(r, g, b, 1.0);
+            }
+        `;
+
+        // Načtení obrázku (Placeholder - stylová architektura nebo abstrakt)
+        const loader = new THREE.TextureLoader();
+        // Používám kvalitní obrázek z Unsplash
+        const imgUrl = 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop';
+        
+        loader.load(imgUrl, (texture) => {
+            document.getElementById('loading').style.display = 'none';
+
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    uImage: { value: texture },
+                    uDisplacement: { value: trailTexture },
+                    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                    uImageRes: { value: new THREE.Vector2(texture.image.width, texture.image.height) },
+                    uVelo: { value: 0 }
+                },
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader
+            });
+
+            // Plane přes celou obrazovku
+            const geometry = new THREE.PlaneGeometry(window.innerWidth, window.innerHeight);
+            const plane = new THREE.Mesh(geometry, material);
+            scene.add(plane);
+        });
+
+        // --- 4. LOGIKA KRESLENÍ STOPY (The Liquid Logic) ---
+        
+        // Převedení souřadnic myši na souřadnice canvasu
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        window.addEventListener('touchmove', (e) => {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+        });
+
+        // Funkce pro vykreslování "kapek" do neviditelného canvasu
+        function updateTrail() {
+            // 1. Fade out efekt - staré stopy pomalu mizí
+            // Kreslíme poloprůhledný černý obdélník přes celý canvas
+            trailCtx.globalCompositeOperation = 'source-over';
+            trailCtx.fillStyle = 'rgba(0, 0, 0, 0.05)'; // 0.05 určuje jak rychle se kapalina "uklidní"
+            trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+
+            // 2. Kreslení nové stopy
+            // Přepočet souřadnic myši na malý canvas
+            const x = mouse.x * (trailCanvas.width / window.innerWidth);
+            const y = (window.innerHeight - mouse.y) * (trailCanvas.height / window.innerHeight); // Invert Y pro canvas 2d
+            
+            // Rychlost myši určuje velikost štětce
+            const speed = mouse.distanceTo(lastMouse);
+            targetSpeed += (speed - targetSpeed) * 0.1;
+
+            const radius = Math.max(20, Math.min(targetSpeed * 2, 60)); // Dynamická velikost
+
+            // Kreslíme "světlo" (bílou barvu), která v shaderu znamená deformaci
+            const gradient = trailCtx.createRadialGradient(x, trailCanvas.height - y, radius * 0.2, x, trailCanvas.height - y, radius);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)'); // Uprostřed silná deformace
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Na kraji žádná
+
+            trailCtx.globalCompositeOperation = 'screen'; // Přičítání světla
+            trailCtx.fillStyle = gradient;
+            trailCtx.beginPath();
+            trailCtx.arc(x, trailCanvas.height - y, radius, 0, Math.PI * 2);
+            trailCtx.fill();
+
+            // Uložení poslední pozice
+            lastMouse.copy(mouse);
+            
+            // Řekneme Three.js, že se textura změnila
+            trailTexture.needsUpdate = true;
+        }
+
+        // --- 5. RENDER LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            updateTrail();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- RESIZE ---
+        window.addEventListener('resize', () => {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            
+            renderer.setSize(w, h);
+            
+            camera.left = -w / 2;
+            camera.right = w / 2;
+            camera.top = h / 2;
+            camera.bottom = -h / 2;
+            camera.updateProjectionMatrix();
+
+            // Update shaderu
+            if(scene.children[0]) {
+                const mesh = scene.children[0];
+                mesh.geometry = new THREE.PlaneGeometry(w, h);
+                mesh.material.uniforms.uResolution.value.x = w;
+                mesh.material.uniforms.uResolution.value.y = h;
+            }
+        });
+
+    </script>
+</body>
+</html>
