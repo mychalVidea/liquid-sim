@@ -379,21 +379,32 @@
                 // Jemný mléčný/světelný závoj + mírné zvýšení kontrastu/jasu
                 glassBg = mix(glassBg, vec3(1.0), 0.06 + uFrost * 0.06);
 
-                // 4. SIGNATURNÍ APPLE SPECULAR RIM (ostrý světelný odlesk na hraně)
-                // Hlavní světlo zleva nahoře + protilehlý jemný odlesk vpravo dole
-                vec2 lightDir = normalize(vec2(-0.65, 0.75));
-                float lightAlign = dot(grad, lightDir);
-                float topRim = pow(max(0.0, lightAlign), 2.2);
-                float bottomRim = pow(max(0.0, -lightAlign), 3.0) * 0.55;
+                // 4. SIGNATURNÍ APPLE LIQUID GLASS HRANY A ODLESKY
+                // Směr světla zleva nahoře (~135°); protilehlý odlesk vpravo dole (~-45°)
+                vec2 lightDir = normalize(vec2(-0.707, 0.707));
+                float align = dot(grad, lightDir);
 
-                // Tenký ostrý okraj (0..1 přesně na hraně skla)
-                float edgeBand = smoothstep(0.0065, 0.0, distIn);
-                float innerGlow = smoothstep(uBevel * 0.85, 0.0, distIn) * 0.14;
+                // Dva protilehlé úhlové laloky (typický Apple křížový odlesk na rozích/hranách)
+                float lobeTopLeft = pow(max(0.0, align), 3.5);
+                float lobeBottomRight = pow(max(0.0, -align), 4.5) * 0.72;
+                float diagonalIntensity = lobeTopLeft + lobeBottomRight;
 
-                vec3 rimColor = vec3(1.0) * (edgeBand * (0.38 + 0.62 * (topRim + bottomRim)));
-                vec3 fresnelSheen = vec3(0.92, 0.96, 1.0) * innerGlow * (0.5 + 0.5 * abs(lightAlign));
+                // a) Ostrý 1px vnější skleněný lem (hairline) po celém obvodu
+                float hairline = smoothstep(0.0032, 0.0004, distIn);
+                // b) Měkký odlesk na zakřivené hraně (bevel catchlight — dává pocit tloušťky skla)
+                float bevelSheen = smoothstep(uBevel * 0.55, 0.001, distIn) * (1.0 - smoothstep(0.001, 0.0, distIn));
+                // c) Jemná vnitřní linka odrazu uvnitř menisku
+                float innerLip = exp(-pow((distIn - uBevel * 0.22) / (uBevel * 0.14), 2.0));
 
-                vec3 glassColor = glassBg + rimColor + fresnelSheen;
+                // Barva odlesku: čistě bílá špička + lehké zabarvení z lomeného pozadí (total internal reflection)
+                vec3 tintedSpec = mix(vec3(1.0), normalize(glassBg + 0.15) * 1.15, 0.28);
+
+                vec3 rimHighlight =
+                    vec3(1.0) * hairline * (0.14 + 0.86 * diagonalIntensity) +
+                    tintedSpec * bevelSheen * (0.06 + 0.34 * diagonalIntensity) +
+                    vec3(0.95, 0.98, 1.0) * innerLip * (0.03 + 0.18 * lobeTopLeft);
+
+                vec3 glassColor = glassBg + rimHighlight;
 
                 vec3 finalColor = mix(bgColor, glassColor, mask);
                 gl_FragColor = vec4(finalColor, 1.0);
