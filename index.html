@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liquid Glass — Real Physics & Optical Dispersion</title>
+    <title>Liquid Glass Blob — Real Spring Physics & Optical Dispersion</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -14,7 +14,7 @@
             user-select: none;
             -webkit-user-select: none;
         }
-        canvas { display: block; cursor: crosshair; }
+        canvas { display: block; cursor: none; }
 
         #loading {
             position: absolute;
@@ -45,7 +45,7 @@
             color: rgba(255, 255, 255, 0.92);
             font-size: 12px;
             z-index: 20;
-            transition: transform 0.25s ease, opacity 0.25s ease;
+            cursor: default;
         }
         #ui.collapsed .ui-body { display: none; }
         .ui-header {
@@ -116,43 +116,43 @@
 
     <div id="ui">
         <div class="ui-header" id="uiToggle">
-            <span>Liquid Glass Physics</span>
+            <span>Liquid Glass Blob</span>
             <span class="ui-toggle" id="uiToggleLabel">Hide</span>
         </div>
         <div class="ui-body">
             <div class="presets">
                 <button class="preset-btn active" data-preset="liquidGlass">Liquid Glass</button>
                 <button class="preset-btn" data-preset="jelly">Elastic Jelly</button>
-                <button class="preset-btn" data-preset="water">Water Ripple</button>
-                <button class="preset-btn" data-preset="mercury">Heavy Oil</button>
+                <button class="preset-btn" data-preset="mercury">Mercury Drop</button>
+                <button class="preset-btn" data-preset="lens">Soft Lens</button>
             </div>
 
             <div class="control">
-                <div class="control-label"><span>Pružení (Spring k)</span><span id="val-spring">18.0</span></div>
-                <input type="range" id="spring" min="0" max="60" step="0.5" value="18.0">
+                <div class="control-label"><span>Pružení (Spring k)</span><span id="val-spring">140</span></div>
+                <input type="range" id="spring" min="30" max="350" step="5" value="140">
             </div>
             <div class="control">
-                <div class="control-label"><span>Rychlost vln (Wave c²)</span><span id="val-wave">0.22</span></div>
-                <input type="range" id="wave" min="0.02" max="0.45" step="0.01" value="0.22">
+                <div class="control-label"><span>Tlumení (Damping)</span><span id="val-damping">9.5</span></div>
+                <input type="range" id="damping" min="2.0" max="24.0" step="0.5" value="9.5">
             </div>
             <div class="control">
-                <div class="control-label"><span>Tlumení (Damping)</span><span id="val-damping">0.985</span></div>
-                <input type="range" id="damping" min="0.90" max="0.998" step="0.001" value="0.985">
+                <div class="control-label"><span>Velikost (Radius)</span><span id="val-radius">0.14</span></div>
+                <input type="range" id="radius" min="0.06" max="0.28" step="0.005" value="0.14">
             </div>
             <div class="control">
-                <div class="control-label"><span>Index lomu (IOR)</span><span id="val-ior">1.45</span></div>
-                <input type="range" id="ior" min="1.05" max="2.20" step="0.01" value="1.45">
+                <div class="control-label"><span>Index lomu (IOR)</span><span id="val-ior">1.50</span></div>
+                <input type="range" id="ior" min="1.05" max="2.20" step="0.01" value="1.50">
             </div>
             <div class="control">
-                <div class="control-label"><span>Disperze (Chromatic)</span><span id="val-dispersion">0.08</span></div>
-                <input type="range" id="dispersion" min="0.0" max="0.25" step="0.005" value="0.08">
+                <div class="control-label"><span>Disperze (Chromatic)</span><span id="val-dispersion">0.09</span></div>
+                <input type="range" id="dispersion" min="0.0" max="0.25" step="0.005" value="0.09">
             </div>
             <div class="control">
-                <div class="control-label"><span>Hloubka skla (Depth)</span><span id="val-depth">0.28</span></div>
-                <input type="range" id="depth" min="0.02" max="0.70" step="0.01" value="0.28">
+                <div class="control-label"><span>Hloubka čočky (Depth)</span><span id="val-depth">0.24</span></div>
+                <input type="range" id="depth" min="0.02" max="0.60" step="0.01" value="0.24">
             </div>
 
-            <div class="hint">Táhni myší pro vlnu • Klikni pro kapku</div>
+            <div class="hint">Pohybuj myší • Klikni pro odskok</div>
         </div>
     </div>
 
@@ -169,64 +169,118 @@
 
         // --- 1. PARAMS & PRESETS ---
         const params = {
-            spring: 18.0,      // Vratná síla pružiny (Hookeův zákon: F = -k * h)
-            wave: 0.22,        // Rychlost šíření vln mezi sousedy (povrchové napětí)
-            damping: 0.985,    // Viskózní tlumení (jak dlouho kapalina pruží)
-            ior: 1.45,         // Index lomu skla (Crown glass ~ 1.52, voda ~ 1.33)
-            dispersion: 0.08,  // Abbeho rozptyl (rozdíl IOR mezi R a B vlnovou délkou)
-            depth: 0.28        // Optická tloušťka / hloubka refrakce
+            spring: 140.0,     // Tuhost pružiny sledování a kmitání tvaru
+            damping: 9.5,      // Viskózní tlumení (nižší = víc želé pružení)
+            radius: 0.14,      // Základní poloměr kapky (v poměru k výšce obrazovky)
+            ior: 1.50,         // Index lomu skla
+            dispersion: 0.09,  // Spektrální disperze (reálná chromatická aberace)
+            depth: 0.24        // Optická tloušťka / síla čočky
         };
 
         const presets = {
-            liquidGlass: { spring: 18.0, wave: 0.22, damping: 0.985, ior: 1.45, dispersion: 0.08, depth: 0.28 },
-            jelly:       { spring: 42.0, wave: 0.14, damping: 0.991, ior: 1.38, dispersion: 0.05, depth: 0.36 },
-            water:       { spring: 4.0,  wave: 0.34, damping: 0.992, ior: 1.33, dispersion: 0.03, depth: 0.22 },
-            mercury:     { spring: 10.0, wave: 0.10, damping: 0.960, ior: 1.85, dispersion: 0.14, depth: 0.42 }
+            liquidGlass: { spring: 140, damping: 9.5,  radius: 0.14, ior: 1.50, dispersion: 0.09, depth: 0.24 },
+            jelly:       { spring: 210, damping: 4.5,  radius: 0.15, ior: 1.40, dispersion: 0.06, depth: 0.28 },
+            mercury:     { spring: 180, damping: 12.0, radius: 0.12, ior: 1.95, dispersion: 0.14, depth: 0.34 },
+            lens:        { spring: 95,  damping: 14.0, radius: 0.18, ior: 1.35, dispersion: 0.03, depth: 0.18 }
         };
 
-        // --- 2. RENDERER & SCÉNY ---
+        // --- 2. RENDERER & SCÉNA ---
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        // Ověříme podporu HalfFloat pro přesnou fyziku (záporné i kladné výšky vln)
-        const gl = renderer.getContext();
-        const isWebGL2 = renderer.capabilities.isWebGL2;
-        const canHalfFloat = isWebGL2
-            ? !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))
-            : !!gl.getExtension('OES_texture_half_float');
-        const simType = canHalfFloat ? THREE.HalfFloatType : THREE.UnsignedByteType;
-
-        // Fyzikální ping-pong FBO (nižší rozlišení = rychlejší + hladší vlny)
-        const SIM_SCALE = 0.35;
-        let simW = Math.max(128, Math.round(window.innerWidth * SIM_SCALE));
-        let simH = Math.max(128, Math.round(window.innerHeight * SIM_SCALE));
-
-        function createSimTarget(w, h) {
-            return new THREE.WebGLRenderTarget(w, h, {
-                minFilter: THREE.LinearFilter,
-                magFilter: THREE.LinearFilter,
-                format: THREE.RGBAFormat,
-                type: simType,
-                depthBuffer: false,
-                stencilBuffer: false
-            });
-        }
-
-        let simRT = [createSimTarget(simW, simH), createSimTarget(simW, simH)];
-        let currentRT = 0;
-
-        // Scéna pro fyzikální krok (full-screen quad)
-        const simScene = new THREE.Scene();
-        const simCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
-        // Hlavní scéna pro finální vykreslení Liquid Glass
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-        // --- 3. FYZIKÁLNÍ SHADER (2D Wave Equation + Damped Spring Oscillator) ---
-        const quadVertexShader = `
+        // --- 3. FYZIKA BLOBU (Spring-Damper + Squash & Stretch + Surface Modes + Tail Droplet) ---
+        // Pracujeme v aspektově korigovaných souřadnicích: x in [0..aspect], y in [0..1]
+        let aspect = window.innerWidth / window.innerHeight;
+        const target = new THREE.Vector2(0.5 * aspect, 0.5);
+
+        const blob = {
+            pos: new THREE.Vector2(0.5 * aspect, 0.5),
+            vel: new THREE.Vector2(0, 0),
+            prevVel: new THREE.Vector2(0, 0),
+            // Sekundární "ocasní" kapka pro efekt povrchového napětí při rychlém pohybu
+            tailPos: new THREE.Vector2(0.5 * aspect, 0.5),
+            tailVel: new THREE.Vector2(0, 0),
+            // Radiální pružení (při kliknutí se kapka nafoukne a zavibruje)
+            radScale: 1.0,
+            radVel: 0.0,
+            // Harmonické módy obvodu kapky (n=2 ovál, n=3 trojúhelníková vlna, n=4 čtyřlístek)
+            mode2: 0.0, mode2Vel: 0.0, mode2Angle: 0.0,
+            mode3: 0.0, mode3Vel: 0.0, mode3Angle: 0.0,
+            mode4: 0.0, mode4Vel: 0.0, mode4Angle: 0.0
+        };
+
+        function stepPhysics(dt) {
+            const k = params.spring;
+            const c = params.damping;
+
+            // 1) Pružina hlavní pozice (Hooke + tlumení)
+            const dx = target.x - blob.pos.x;
+            const dy = target.y - blob.pos.y;
+            const ax = k * dx - c * blob.vel.x;
+            const ay = k * dy - c * blob.vel.y;
+
+            blob.prevVel.copy(blob.vel);
+            blob.vel.x += ax * dt;
+            blob.vel.y += ay * dt;
+            blob.pos.x += blob.vel.x * dt;
+            blob.pos.y += blob.vel.y * dt;
+
+            // Zrychlení v tomto kroku (budí povrchové kmitání kapky)
+            const dvx = (blob.vel.x - blob.prevVel.x) / Math.max(dt, 1e-4);
+            const dvy = (blob.vel.y - blob.prevVel.y) / Math.max(dt, 1e-4);
+            const accelMag = Math.hypot(dvx, dvy);
+            const accelAngle = Math.atan2(dvy, dvx);
+
+            // 2) Sekundární kapka na měkčí pružině (táhne se za hlavní a spojuje se přes smin)
+            const kTail = k * 0.48;
+            const cTail = c * 0.85;
+            const tax = kTail * (blob.pos.x - blob.tailPos.x) - cTail * blob.tailVel.x;
+            const tay = kTail * (blob.pos.y - blob.tailPos.y) - cTail * blob.tailVel.y;
+            blob.tailVel.x += tax * dt;
+            blob.tailVel.y += tay * dt;
+            blob.tailPos.x += blob.tailVel.x * dt;
+            blob.tailPos.y += blob.tailVel.y * dt;
+
+            // 3) Radiální pružení (návrat k radScale = 1.0)
+            const kRad = k * 2.2;
+            const cRad = c * 0.65;
+            const aRad = kRad * (1.0 - blob.radScale) - cRad * blob.radVel;
+            blob.radVel += aRad * dt;
+            blob.radScale += blob.radVel * dt;
+
+            // 4) Povrchové harmonické módy (reálné vlnění okraje kapky při zrychlení)
+            if (accelMag > 0.5) {
+                const excite = Math.min(accelMag * 0.008, 0.25);
+                blob.mode2Vel += Math.cos(2.0 * (accelAngle - blob.mode2Angle)) * excite * 12.0;
+                blob.mode3Vel += Math.sin(3.0 * (accelAngle - blob.mode3Angle)) * excite * 7.0;
+                blob.mode2Angle = accelAngle;
+                blob.mode3Angle = accelAngle + 0.7;
+            }
+
+            // Pružinové oscilátory pro módy 2, 3, 4
+            const kM2 = k * 1.8, cM2 = c * 0.55;
+            blob.mode2Vel += (-kM2 * blob.mode2 - cM2 * blob.mode2Vel) * dt;
+            blob.mode2 += blob.mode2Vel * dt;
+            blob.mode2 = Math.max(-0.28, Math.min(0.28, blob.mode2));
+
+            const kM3 = k * 2.8, cM3 = c * 0.50;
+            blob.mode3Vel += (-kM3 * blob.mode3 - cM3 * blob.mode3Vel) * dt;
+            blob.mode3 += blob.mode3Vel * dt;
+            blob.mode3 = Math.max(-0.18, Math.min(0.18, blob.mode3));
+
+            const kM4 = k * 3.8, cM4 = c * 0.45;
+            blob.mode4Vel += (-kM4 * blob.mode4 - cM4 * blob.mode4Vel) * dt;
+            blob.mode4 += blob.mode4Vel * dt;
+            blob.mode4 = Math.max(-0.12, Math.min(0.12, blob.mode4));
+        }
+
+        // --- 4. SHADER (SDF Blob + 3D Dome Normals + Snell Refraction + 5-band Dispersion) ---
+        const vertexShader = `
             varying vec2 vUv;
             void main() {
                 vUv = uv;
@@ -234,141 +288,21 @@
             }
         `;
 
-        const simFragmentShader = `
-            precision highp float;
-
-            uniform sampler2D uPrev;       // R = height, G = velocity
-            uniform vec2 uTexelSize;       // 1.0 / simResolution
-            uniform vec2 uResolution;      // window aspect correction
-            uniform float uDt;
-            uniform float uSpring;
-            uniform float uWave;
-            uniform float uDamping;
-
-            uniform vec2 uMouse;           // aktuální myš v UV (0..1)
-            uniform vec2 uPrevMouse;       // předchozí myš v UV
-            uniform float uMouseActive;    // 0 nebo 1
-            uniform float uMouseSpeed;     // rychlost pohybu myši
-            uniform float uSplash;         // jednorázový impuls (klik)
-
-            varying vec2 vUv;
-
-            // Nejkratší vzdálenost bodu od úsečky (pro plynulou stopu bez mezer)
-            float distToSegment(vec2 p, vec2 a, vec2 b) {
-                vec2 pa = p - a;
-                vec2 ba = b - a;
-                float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-                return length(pa - ba * h);
-            }
-
-            void main() {
-                vec4 state = texture2D(uPrev, vUv);
-                float h = state.r;
-                float v = state.g;
-
-                // 9-bodový izotropní Laplacian (kruhové vlny místo čtvercových)
-                vec2 dx = vec2(uTexelSize.x, 0.0);
-                vec2 dy = vec2(0.0, uTexelSize.y);
-
-                float hL = texture2D(uPrev, vUv - dx).r;
-                float hR = texture2D(uPrev, vUv + dx).r;
-                float hT = texture2D(uPrev, vUv + dy).r;
-                float hB = texture2D(uPrev, vUv - dy).r;
-
-                float hTL = texture2D(uPrev, vUv - dx + dy).r;
-                float hTR = texture2D(uPrev, vUv + dx + dy).r;
-                float hBL = texture2D(uPrev, vUv - dx - dy).r;
-                float hBR = texture2D(uPrev, vUv + dx - dy).r;
-
-                float neighborAvg = 0.2 * (hL + hR + hT + hB) + 0.05 * (hTL + hTR + hBL + hBR);
-                float laplacian = neighborAvg - h;
-
-                // Fyzika pružiny + vlnové rovnice:
-                // 1) Povrchové napětí / vlna táhne bod k průměru sousedů
-                // 2) Elastická pružina (Hooke) táhne bod zpět do klidové roviny (h = 0)
-                float waveForce = uWave * laplacian * 280.0;
-                float springForce = -uSpring * h;
-                float accel = waveForce + springForce;
-
-                // Symplectic Euler integrace
-                v += accel * uDt;
-                v *= pow(uDamping, uDt * 60.0);
-                h += v * uDt;
-
-                // Jemné pohlcení vln na okrajích obrazovky (absorbing boundary)
-                vec2 edge = min(vUv, 1.0 - vUv);
-                float borderMask = smoothstep(0.0, 0.04, min(edge.x, edge.y));
-                h *= mix(0.92, 1.0, borderMask);
-                v *= mix(0.92, 1.0, borderMask);
-
-                // Interakce myší (korekce poměru stran, aby byla kapka kulatá)
-                float aspect = uResolution.x / uResolution.y;
-                vec2 pAspect = vec2(vUv.x * aspect, vUv.y);
-                vec2 mAspect = vec2(uMouse.x * aspect, uMouse.y);
-                vec2 pmAspect = vec2(uPrevMouse.x * aspect, uPrevMouse.y);
-
-                if (uMouseActive > 0.5) {
-                    float d = distToSegment(pAspect, pmAspect, mAspect);
-                    float radius = mix(0.032, 0.065, clamp(uMouseSpeed * 12.0, 0.0, 1.0));
-                    if (d < radius) {
-                        // Hladký Gaussův/kubický profil impulsu
-                        float falloff = smoothstep(radius, 0.0, d);
-                        falloff = falloff * falloff;
-                        // Tlačíme kapalinu dolů -> vznikne vlna a zpětné odpružení nahoru
-                        float impulse = -falloff * (0.45 + min(uMouseSpeed * 38.0, 2.2));
-                        v += impulse * 18.0 * uDt;
-                    }
-                }
-
-                // Kliknutí / tapnutí vytvoří silnou kapku
-                if (uSplash > 0.01) {
-                    float dc = length(pAspect - mAspect);
-                    float rSplash = 0.085;
-                    if (dc < rSplash) {
-                        float f = smoothstep(rSplash, 0.0, dc);
-                        v -= f * f * uSplash * 4.5;
-                    }
-                }
-
-                // Bezpečnostní clamp proti numerické explozi
-                h = clamp(h, -2.5, 2.5);
-                v = clamp(v, -12.0, 12.0);
-
-                gl_FragColor = vec4(h, v, 0.0, 1.0);
-            }
-        `;
-
-        const simMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                uPrev: { value: null },
-                uTexelSize: { value: new THREE.Vector2(1 / simW, 1 / simH) },
-                uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-                uDt: { value: 1 / 60 },
-                uSpring: { value: params.spring },
-                uWave: { value: params.wave },
-                uDamping: { value: params.damping },
-                uMouse: { value: new THREE.Vector2(0.5, 0.5) },
-                uPrevMouse: { value: new THREE.Vector2(0.5, 0.5) },
-                uMouseActive: { value: 0 },
-                uMouseSpeed: { value: 0 },
-                uSplash: { value: 0 }
-            },
-            vertexShader: quadVertexShader,
-            fragmentShader: simFragmentShader
-        });
-
-        const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), simMaterial);
-        simScene.add(simQuad);
-
-        // --- 4. OPTICKÝ SHADER (Snellův zákon + Reálná disperze + Fresnel + Specular) ---
-        const displayFragmentShader = `
+        const fragmentShader = `
             precision highp float;
 
             uniform sampler2D uImage;
-            uniform sampler2D uHeightMap;
             uniform vec2 uResolution;
             uniform vec2 uImageRes;
-            uniform vec2 uSimTexel;
+
+            uniform vec2 uBlobPos;       // v aspektově korigovaném prostoru (x: 0..aspect, y: 0..1)
+            uniform vec2 uBlobVel;
+            uniform vec2 uTailPos;
+            uniform float uRadius;
+            uniform float uRadScale;
+            uniform vec3 uModes;         // x: mode2, y: mode3, z: mode4
+            uniform vec3 uModeAngles;    // úhly módů
+
             uniform float uIOR;
             uniform float uDispersion;
             uniform float uDepth;
@@ -385,56 +319,104 @@
                 return uv * s / newSize + offset;
             }
 
-            // Vzorkování výšky hladiny
-            float sampleH(vec2 uv) {
-                return texture2D(uHeightMap, uv).r;
+            // Smooth minimum pro spojení kapek povrchovým napětím
+            float smin(float a, float b, float k) {
+                float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+                return mix(b, a, h) - k * h * (1.0 - h);
             }
 
-            // Vypočítá refraktované UV podle Snellova zákona pro daný index lomu (IOR)
+            // Signed Distance Field tekutého blobu (squash & stretch + harmonické vlny)
+            float blobSDF(vec2 p) {
+                vec2 d = p - uBlobPos;
+
+                // Squash & stretch podle směru rychlosti (zachování objemu)
+                float speed = length(uBlobVel);
+                float stretch = 1.0 + min(speed * 0.22, 0.35);
+                float squash = 1.0 / stretch;
+
+                vec2 dir = speed > 0.001 ? uBlobVel / speed : vec2(1.0, 0.0);
+                vec2 perp = vec2(-dir.y, dir.x);
+
+                vec2 localD = vec2(dot(d, dir) / stretch, dot(d, perp) / squash);
+                float distMain = length(localD);
+
+                // Úhel pro povrchové módy pružení
+                float theta = atan(d.y, d.x);
+                float wobble =
+                    uModes.x * cos(2.0 * (theta - uModeAngles.x)) +
+                    uModes.y * cos(3.0 * (theta - uModeAngles.y)) +
+                    uModes.z * cos(4.0 * (theta - uModeAngles.z));
+
+                float rMain = uRadius * uRadScale * (1.0 + wobble);
+                float sdfMain = distMain - rMain;
+
+                // Menší ocasní kapka spojená přes smin (povrchové napětí)
+                float rTail = uRadius * 0.48 * clamp(0.6 + speed * 0.25, 0.6, 1.0);
+                float sdfTail = length(p - uTailPos) - rTail;
+
+                return smin(sdfMain, sdfTail, uRadius * 0.45);
+            }
+
+            // Výška 3D kopule kapky (0 na okraji, 1 uprostřed)
+            float domeHeight(float sdf) {
+                float t = clamp(-sdf / (uRadius * 0.85), 0.0, 1.0);
+                // Hladký profil kapky (kulatý okraj + měkká špička)
+                return sqrt(max(0.0, 1.0 - (1.0 - t) * (1.0 - t)));
+            }
+
             vec2 refractUV(vec2 baseUv, vec3 viewDir, vec3 normal, float ior, float thickness) {
                 float eta = 1.0 / ior;
                 vec3 refracted = refract(viewDir, normal, eta);
-                // Projekce paprsku na pozadí ve vzdálenosti "thickness"
                 vec2 offset = refracted.xy / max(abs(refracted.z), 0.15) * thickness;
                 return clamp(baseUv + offset, 0.001, 0.999);
             }
 
             void main() {
+                float aspect = uResolution.x / uResolution.y;
+                vec2 p = vec2(vUv.x * aspect, vUv.y);
                 vec2 bgUv = cover(vUv, uResolution, uImageRes);
 
-                // 1. Výpočet normály povrchu z výškového pole (centrální diference)
-                vec2 sx = vec2(uSimTexel.x * 1.5, 0.0);
-                vec2 sy = vec2(0.0, uSimTexel.y * 1.5);
+                float sdf = blobSDF(p);
 
-                float hC = sampleH(vUv);
-                float hL = sampleH(vUv - sx);
-                float hR = sampleH(vUv + sx);
-                float hB = sampleH(vUv - sy);
-                float hT = sampleH(vUv + sy);
+                // Pozadí + jemný stín pod skleněným blobem (reakce s pozadím)
+                vec3 bgColor = texture2D(uImage, bgUv).rgb;
+                float shadowSdf = blobSDF(p - vec2(0.012, -0.016));
+                float shadow = smoothstep(uRadius * 0.35, -uRadius * 0.05, shadowSdf);
+                bgColor *= 1.0 - shadow * 0.32;
 
-                float dHx = (hR - hL) * 0.5;
-                float dHy = (hT - hB) * 0.5;
+                // Hladký antialiasing okraje kapky
+                float aa = 0.0025;
+                float mask = smoothstep(aa, -aa, sdf);
 
-                // Normalizace sklonu hladiny -> 3D normála skla
-                float slopeScale = 2.6;
+                if (mask <= 0.001) {
+                    gl_FragColor = vec4(bgColor, 1.0);
+                    return;
+                }
+
+                // 1. Výpočet 3D normály kopule kapky pomocí gradientu výšky
+                float eps = 0.0025;
+                float hC = domeHeight(sdf);
+                float hR = domeHeight(blobSDF(p + vec2(eps, 0.0)));
+                float hL = domeHeight(blobSDF(p - vec2(eps, 0.0)));
+                float hT = domeHeight(blobSDF(p + vec2(0.0, eps)));
+                float hB = domeHeight(blobSDF(p - vec2(0.0, eps)));
+
+                float dHx = (hR - hL) / (2.0 * eps);
+                float dHy = (hT - hB) / (2.0 * eps);
+
+                // Normála směřuje ven z kapky; na okraji je strmá, uprostřed míří k pozorovateli
+                float slopeScale = uRadius * 1.15;
                 vec3 normal = normalize(vec3(-dHx * slopeScale, -dHy * slopeScale, 1.0));
 
-                // Pohledový paprsek (mírně perspektivní od středu obrazovky)
-                vec2 centered = (vUv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
-                vec3 viewDir = normalize(vec3(centered * 0.25, -1.0));
+                vec3 viewDir = normalize(vec3((vUv - 0.5) * 0.18, -1.0));
+                float thickness = uDepth * (0.35 + hC * 0.95);
 
-                // Tloušťka média se mění podle výšky vlny (čočkový efekt)
-                float thickness = uDepth * (1.0 + hC * 0.65);
-
-                // 2. REÁLNÁ CHROMATICKÁ ABERACE (Spektrální disperze)
-                // Každá vlnová délka má vlastní IOR podle Cauchyho disperze:
-                // Červená se láme nejméně, fialová/modrá nejvíce.
-                // 5 spektrálních vzorků vytvoří plynulý hranolový přechod bez RGB duchů.
-                vec2 uvR  = refractUV(bgUv, viewDir, normal, uIOR - uDispersion * 1.00, thickness);
-                vec2 uvY  = refractUV(bgUv, viewDir, normal, uIOR - uDispersion * 0.35, thickness);
-                vec2 uvG  = refractUV(bgUv, viewDir, normal, uIOR,                      thickness);
-                vec2 uvC  = refractUV(bgUv, viewDir, normal, uIOR + uDispersion * 0.45, thickness);
-                vec2 uvB  = refractUV(bgUv, viewDir, normal, uIOR + uDispersion * 1.15, thickness);
+                // 2. REÁLNÁ CHROMATICKÁ ABERACE (5-pásmová spektrální disperze)
+                vec2 uvR = refractUV(bgUv, viewDir, normal, uIOR - uDispersion * 1.00, thickness);
+                vec2 uvY = refractUV(bgUv, viewDir, normal, uIOR - uDispersion * 0.35, thickness);
+                vec2 uvG = refractUV(bgUv, viewDir, normal, uIOR,                      thickness);
+                vec2 uvC = refractUV(bgUv, viewDir, normal, uIOR + uDispersion * 0.45, thickness);
+                vec2 uvB = refractUV(bgUv, viewDir, normal, uIOR + uDispersion * 1.15, thickness);
 
                 vec3 cR = texture2D(uImage, uvR).rgb;
                 vec3 cY = texture2D(uImage, uvY).rgb;
@@ -442,47 +424,46 @@
                 vec3 cC = texture2D(uImage, uvC).rgb;
                 vec3 cB = texture2D(uImage, uvB).rgb;
 
-                // Spektrální vážení do výsledné RGB barvy
                 vec3 refractedColor = vec3(
                     cR.r * 0.65 + cY.r * 0.35,
                     cY.g * 0.22 + cG.g * 0.56 + cC.g * 0.22,
                     cC.b * 0.35 + cB.b * 0.65
                 );
 
-                // 3. FRESNELŮV JEV (Schlickova aproximace)
-                // Na strmých hranách vln se sklo chová více jako zrcadlo
+                // Jemná koncentrace světla (kaustika) uvnitř čočky
+                refractedColor *= 1.0 + hC * 0.08;
+
+                // 3. FRESNELŮV ODRAZ na zakřiveném okraji kapky
                 float f0 = pow((1.0 - uIOR) / (1.0 + uIOR), 2.0);
                 float cosTheta = clamp(dot(-viewDir, normal), 0.0, 1.0);
-                float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
+                float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosTheta, 4.5);
 
-                // Odraz virtuálního studia / oblohy
                 vec3 reflDir = reflect(viewDir, normal);
                 float skyGrad = smoothstep(-0.2, 0.8, reflDir.y);
-                vec3 envColor = mix(vec3(0.08, 0.12, 0.18), vec3(0.75, 0.88, 1.0), skyGrad);
+                vec3 envColor = mix(vec3(0.08, 0.12, 0.18), vec3(0.85, 0.94, 1.0), skyGrad);
 
-                // 4. SPECULAR ODLESKY (mokré sklo)
-                vec3 lightDir1 = normalize(vec3(0.55, 0.75, 0.85));
-                vec3 lightDir2 = normalize(vec3(-0.7, -0.4, 0.6));
+                // 4. MOKRÉ SPECULAR ODLESKY (hlavní světlo + protisvětlo)
+                vec3 lightDir1 = normalize(vec3(-0.55, 0.75, 0.85));
+                vec3 lightDir2 = normalize(vec3(0.65, -0.5, 0.55));
                 vec3 halfVec1 = normalize(lightDir1 - viewDir);
                 vec3 halfVec2 = normalize(lightDir2 - viewDir);
 
-                float spec1 = pow(max(dot(normal, halfVec1), 0.0), 140.0) * 0.95;
-                float spec2 = pow(max(dot(normal, halfVec2), 0.0), 60.0) * 0.28;
+                float spec1 = pow(max(dot(normal, halfVec1), 0.0), 110.0) * 0.95;
+                float spec2 = pow(max(dot(normal, halfVec2), 0.0), 42.0) * 0.30;
 
-                // 5. KAUSTIKA / ZAHUŠTĚNÍ SVĚTLA (zakřivení hladiny soustřeďuje světlo)
-                float curvature = (hL + hR + hT + hB) * 0.25 - hC;
-                float caustic = clamp(curvature * 1.4, -0.12, 0.35);
+                // Jemný skleněný lem na samém okraji kapky
+                float rim = smoothstep(0.32, 0.0, hC) * 0.22;
 
-                // Finální kompozice Liquid Glass
-                vec3 color = mix(refractedColor * (1.0 + caustic), envColor, fresnel * 0.75);
-                color += vec3(1.0, 0.98, 0.95) * spec1;
-                color += vec3(0.7, 0.88, 1.0) * spec2;
+                vec3 glassColor = mix(refractedColor, envColor, fresnel * 0.8);
+                glassColor += vec3(1.0, 0.99, 0.96) * spec1;
+                glassColor += vec3(0.72, 0.90, 1.0) * (spec2 + rim);
 
-                gl_FragColor = vec4(color, 1.0);
+                vec3 finalColor = mix(bgColor, glassColor, mask);
+                gl_FragColor = vec4(finalColor, 1.0);
             }
         `;
 
-        let displayMaterial = null;
+        let material = null;
         const loader = new THREE.TextureLoader();
         const imgUrl = 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop';
 
@@ -491,53 +472,53 @@
             texture.minFilter = THREE.LinearFilter;
             texture.magFilter = THREE.LinearFilter;
 
-            displayMaterial = new THREE.ShaderMaterial({
+            material = new THREE.ShaderMaterial({
                 uniforms: {
                     uImage: { value: texture },
-                    uHeightMap: { value: simRT[0].texture },
                     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
                     uImageRes: { value: new THREE.Vector2(texture.image.width, texture.image.height) },
-                    uSimTexel: { value: new THREE.Vector2(1 / simW, 1 / simH) },
+                    uBlobPos: { value: blob.pos.clone() },
+                    uBlobVel: { value: blob.vel.clone() },
+                    uTailPos: { value: blob.tailPos.clone() },
+                    uRadius: { value: params.radius },
+                    uRadScale: { value: 1.0 },
+                    uModes: { value: new THREE.Vector3() },
+                    uModeAngles: { value: new THREE.Vector3() },
                     uIOR: { value: params.ior },
                     uDispersion: { value: params.dispersion },
                     uDepth: { value: params.depth }
                 },
-                vertexShader: quadVertexShader,
-                fragmentShader: displayFragmentShader
+                vertexShader,
+                fragmentShader
             });
 
-            const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), displayMaterial);
+            const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
             scene.add(plane);
         });
 
         // --- 5. OVLÁDÁNÍ MYŠÍ / DOTYKEM ---
-        const mouse = new THREE.Vector2(0.5, 0.5);
-        const prevMouse = new THREE.Vector2(0.5, 0.5);
-        let mouseActive = false;
-        let pendingSplash = 0;
-
-        function updatePointer(clientX, clientY) {
-            mouse.x = clientX / window.innerWidth;
-            mouse.y = 1.0 - clientY / window.innerHeight;
-            if (!mouseActive) {
-                prevMouse.copy(mouse);
-                mouseActive = true;
-            }
+        function updateTarget(clientX, clientY) {
+            target.x = (clientX / window.innerWidth) * aspect;
+            target.y = 1.0 - clientY / window.innerHeight;
         }
 
-        window.addEventListener('mousemove', (e) => updatePointer(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => updateTarget(e.clientX, e.clientY));
         window.addEventListener('mousedown', (e) => {
             if (e.target.closest('#ui')) return;
-            updatePointer(e.clientX, e.clientY);
-            pendingSplash = 1.4;
+            updateTarget(e.clientX, e.clientY);
+            // Impuls při kliknutí: kapka se smrští a pružně odskočí
+            blob.radVel -= 3.8;
+            blob.mode2Vel += 3.2;
+            blob.mode4Vel -= 2.4;
         });
         window.addEventListener('touchstart', (e) => {
             if (e.target.closest('#ui')) return;
-            updatePointer(e.touches[0].clientX, e.touches[0].clientY);
-            pendingSplash = 1.4;
+            updateTarget(e.touches[0].clientX, e.touches[0].clientY);
+            blob.radVel -= 3.8;
+            blob.mode2Vel += 3.2;
         }, { passive: true });
         window.addEventListener('touchmove', (e) => {
-            updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+            updateTarget(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: true });
 
         // --- 6. UI LOGIKA ---
@@ -549,13 +530,15 @@
             uiToggleLabel.textContent = ui.classList.contains('collapsed') ? 'Show' : 'Hide';
         });
 
-        const sliderKeys = ['spring', 'wave', 'damping', 'ior', 'dispersion', 'depth'];
+        const sliderKeys = ['spring', 'damping', 'radius', 'ior', 'dispersion', 'depth'];
         function syncUI() {
             for (const key of sliderKeys) {
                 const input = document.getElementById(key);
                 const label = document.getElementById('val-' + key);
                 input.value = params[key];
-                label.textContent = key === 'damping' ? params[key].toFixed(3) : params[key].toFixed(2);
+                label.textContent = key === 'spring' ? params[key].toFixed(0) :
+                                    key === 'damping' ? params[key].toFixed(1) :
+                                    params[key].toFixed(2);
             }
         }
 
@@ -586,43 +569,25 @@
             const dt = Math.min((now - lastTime) / 1000, 1 / 30);
             lastTime = now;
 
-            const speed = mouse.distanceTo(prevMouse);
-
-            // Aktualizace fyzikálních uniforem
-            simMaterial.uniforms.uDt.value = dt;
-            simMaterial.uniforms.uSpring.value = params.spring;
-            simMaterial.uniforms.uWave.value = params.wave;
-            simMaterial.uniforms.uDamping.value = params.damping;
-            simMaterial.uniforms.uMouse.value.copy(mouse);
-            simMaterial.uniforms.uPrevMouse.value.copy(prevMouse);
-            simMaterial.uniforms.uMouseActive.value = mouseActive ? 1.0 : 0.0;
-            simMaterial.uniforms.uMouseSpeed.value = speed;
-            simMaterial.uniforms.uSplash.value = pendingSplash;
-
-            // Ping-pong krok fyziky (2 substeps pro stabilitu při vyšším pružení)
-            const substeps = 2;
-            simMaterial.uniforms.uDt.value = dt / substeps;
+            // Substeps pro stabilní pružinu i při vysokém k
+            const substeps = 3;
+            const subDt = dt / substeps;
             for (let i = 0; i < substeps; i++) {
-                const readRT = simRT[currentRT];
-                const writeRT = simRT[1 - currentRT];
-                simMaterial.uniforms.uPrev.value = readRT.texture;
-                if (i > 0) simMaterial.uniforms.uSplash.value = 0.0;
-
-                renderer.setRenderTarget(writeRT);
-                renderer.render(simScene, simCamera);
-                currentRT = 1 - currentRT;
+                stepPhysics(subDt);
             }
-            renderer.setRenderTarget(null);
 
-            pendingSplash = 0.0;
-            prevMouse.copy(mouse);
+            if (material) {
+                material.uniforms.uBlobPos.value.copy(blob.pos);
+                material.uniforms.uBlobVel.value.copy(blob.vel);
+                material.uniforms.uTailPos.value.copy(blob.tailPos);
+                material.uniforms.uRadius.value = params.radius;
+                material.uniforms.uRadScale.value = blob.radScale;
+                material.uniforms.uModes.value.set(blob.mode2, blob.mode3, blob.mode4);
+                material.uniforms.uModeAngles.value.set(blob.mode2Angle, blob.mode3Angle, blob.mode4Angle);
+                material.uniforms.uIOR.value = params.ior;
+                material.uniforms.uDispersion.value = params.dispersion;
+                material.uniforms.uDepth.value = params.depth;
 
-            // Finální vykreslení Liquid Glass
-            if (displayMaterial) {
-                displayMaterial.uniforms.uHeightMap.value = simRT[currentRT].texture;
-                displayMaterial.uniforms.uIOR.value = params.ior;
-                displayMaterial.uniforms.uDispersion.value = params.dispersion;
-                displayMaterial.uniforms.uDepth.value = params.depth;
                 renderer.render(scene, camera);
             }
         }
@@ -633,20 +598,10 @@
         window.addEventListener('resize', () => {
             const w = window.innerWidth;
             const h = window.innerHeight;
+            aspect = w / h;
             renderer.setSize(w, h);
-
-            simW = Math.max(128, Math.round(w * SIM_SCALE));
-            simH = Math.max(128, Math.round(h * SIM_SCALE));
-            simRT[0].dispose();
-            simRT[1].dispose();
-            simRT = [createSimTarget(simW, simH), createSimTarget(simW, simH)];
-
-            simMaterial.uniforms.uTexelSize.value.set(1 / simW, 1 / simH);
-            simMaterial.uniforms.uResolution.value.set(w, h);
-
-            if (displayMaterial) {
-                displayMaterial.uniforms.uResolution.value.set(w, h);
-                displayMaterial.uniforms.uSimTexel.value.set(1 / simW, 1 / simH);
+            if (material) {
+                material.uniforms.uResolution.value.set(w, h);
             }
         });
     </script>
