@@ -1,23 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liquid Glass 1:1 Replica</title>
+    <title>Liquid Glass — Real Physics & Optical Dispersion</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
-        canvas { display: block; }
-        
-        /* Loading text */
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050508;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas { display: block; cursor: crosshair; }
+
         #loading {
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             color: white;
-            font-family: sans-serif;
+            font-size: 14px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
             pointer-events: none;
             mix-blend-mode: difference;
             z-index: 10;
+        }
+
+        /* Minimalistický Liquid Glass UI panel */
+        #ui {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 268px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(14, 16, 24, 0.55);
+            backdrop-filter: blur(18px) saturate(160%);
+            -webkit-backdrop-filter: blur(18px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            color: rgba(255, 255, 255, 0.92);
+            font-size: 12px;
+            z-index: 20;
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+        #ui.collapsed .ui-body { display: none; }
+        .ui-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+        }
+        .ui-toggle {
+            font-size: 11px;
+            opacity: 0.65;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .ui-body { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        button.preset-btn {
+            appearance: none;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        button.preset-btn:hover { background: rgba(255, 255, 255, 0.15); }
+        button.preset-btn.active {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.45);
+        }
+        .control { display: flex; flex-direction: column; gap: 4px; }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 11px;
+        }
+        .control-label span:last-child {
+            font-variant-numeric: tabular-nums;
+            color: rgba(255, 255, 255, 0.95);
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: #a5d8ff;
+            cursor: pointer;
+            margin: 0;
+        }
+        .hint {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            margin-top: 2px;
         }
     </style>
 </head>
@@ -25,7 +114,48 @@
 
     <div id="loading">Loading Liquid Glass...</div>
 
-    <!-- Import Map pro Three.js -->
+    <div id="ui">
+        <div class="ui-header" id="uiToggle">
+            <span>Liquid Glass Physics</span>
+            <span class="ui-toggle" id="uiToggleLabel">Hide</span>
+        </div>
+        <div class="ui-body">
+            <div class="presets">
+                <button class="preset-btn active" data-preset="liquidGlass">Liquid Glass</button>
+                <button class="preset-btn" data-preset="jelly">Elastic Jelly</button>
+                <button class="preset-btn" data-preset="water">Water Ripple</button>
+                <button class="preset-btn" data-preset="mercury">Heavy Oil</button>
+            </div>
+
+            <div class="control">
+                <div class="control-label"><span>Pružení (Spring k)</span><span id="val-spring">18.0</span></div>
+                <input type="range" id="spring" min="0" max="60" step="0.5" value="18.0">
+            </div>
+            <div class="control">
+                <div class="control-label"><span>Rychlost vln (Wave c²)</span><span id="val-wave">0.22</span></div>
+                <input type="range" id="wave" min="0.02" max="0.45" step="0.01" value="0.22">
+            </div>
+            <div class="control">
+                <div class="control-label"><span>Tlumení (Damping)</span><span id="val-damping">0.985</span></div>
+                <input type="range" id="damping" min="0.90" max="0.998" step="0.001" value="0.985">
+            </div>
+            <div class="control">
+                <div class="control-label"><span>Index lomu (IOR)</span><span id="val-ior">1.45</span></div>
+                <input type="range" id="ior" min="1.05" max="2.20" step="0.01" value="1.45">
+            </div>
+            <div class="control">
+                <div class="control-label"><span>Disperze (Chromatic)</span><span id="val-dispersion">0.08</span></div>
+                <input type="range" id="dispersion" min="0.0" max="0.25" step="0.005" value="0.08">
+            </div>
+            <div class="control">
+                <div class="control-label"><span>Hloubka skla (Depth)</span><span id="val-depth">0.28</span></div>
+                <input type="range" id="depth" min="0.02" max="0.70" step="0.01" value="0.28">
+            </div>
+
+            <div class="hint">Táhni myší pro vlnu • Klikni pro kapku</div>
+        </div>
+    </div>
+
     <script type="importmap">
         {
             "imports": {
@@ -37,206 +167,488 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- 1. SETUP SCÉNY ---
-        const scene = new THREE.Scene();
-        
-        // Orthographic kamera je pro 2D efekty lepší než Perspective
-        const camera = new THREE.OrthographicCamera(
-            window.innerWidth / -2, window.innerWidth / 2,
-            window.innerHeight / 2, window.innerHeight / -2,
-            1, 1000
-        );
-        camera.position.z = 1;
+        // --- 1. PARAMS & PRESETS ---
+        const params = {
+            spring: 18.0,      // Vratná síla pružiny (Hookeův zákon: F = -k * h)
+            wave: 0.22,        // Rychlost šíření vln mezi sousedy (povrchové napětí)
+            damping: 0.985,    // Viskózní tlumení (jak dlouho kapalina pruží)
+            ior: 1.45,         // Index lomu skla (Crown glass ~ 1.52, voda ~ 1.33)
+            dispersion: 0.08,  // Abbeho rozptyl (rozdíl IOR mezi R a B vlnovou délkou)
+            depth: 0.28        // Optická tloušťka / hloubka refrakce
+        };
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const presets = {
+            liquidGlass: { spring: 18.0, wave: 0.22, damping: 0.985, ior: 1.45, dispersion: 0.08, depth: 0.28 },
+            jelly:       { spring: 42.0, wave: 0.14, damping: 0.991, ior: 1.38, dispersion: 0.05, depth: 0.36 },
+            water:       { spring: 4.0,  wave: 0.34, damping: 0.992, ior: 1.33, dispersion: 0.03, depth: 0.22 },
+            mercury:     { spring: 10.0, wave: 0.10, damping: 0.960, ior: 1.85, dispersion: 0.14, depth: 0.42 }
+        };
+
+        // --- 2. RENDERER & SCÉNY ---
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        // --- 2. TRAIL CANVAS (Neviditelné plátno pro stopu myši) ---
-        // Tohle je ten trik. Kreslíme myší do 2D canvasu, a ten používáme jako mapu pro deformaci.
-        const trailCanvas = document.createElement('canvas');
-        trailCanvas.width = window.innerWidth * 0.2; // Menší rozlišení pro výkon a "blur" efekt
-        trailCanvas.height = window.innerHeight * 0.2;
-        const trailCtx = trailCanvas.getContext('2d');
-        
-        // Vytvoříme texturu z tohoto canvasu
-        const trailTexture = new THREE.CanvasTexture(trailCanvas);
-        
-        // Nastavení chování myši
-        let mouse = new THREE.Vector2(0.5, 0.5);
-        let lastMouse = new THREE.Vector2(0.5, 0.5);
-        let targetSpeed = 0;
+        // Ověříme podporu HalfFloat pro přesnou fyziku (záporné i kladné výšky vln)
+        const gl = renderer.getContext();
+        const isWebGL2 = renderer.capabilities.isWebGL2;
+        const canHalfFloat = isWebGL2
+            ? !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))
+            : !!gl.getExtension('OES_texture_half_float');
+        const simType = canHalfFloat ? THREE.HalfFloatType : THREE.UnsignedByteType;
 
-        // --- 3. SHADER MATERIÁL (To "Sklo") ---
-        // Zde se děje magie. GLSL kód pro WebGL.
-        
-        const vertexShader = `
+        // Fyzikální ping-pong FBO (nižší rozlišení = rychlejší + hladší vlny)
+        const SIM_SCALE = 0.35;
+        let simW = Math.max(128, Math.round(window.innerWidth * SIM_SCALE));
+        let simH = Math.max(128, Math.round(window.innerHeight * SIM_SCALE));
+
+        function createSimTarget(w, h) {
+            return new THREE.WebGLRenderTarget(w, h, {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat,
+                type: simType,
+                depthBuffer: false,
+                stencilBuffer: false
+            });
+        }
+
+        let simRT = [createSimTarget(simW, simH), createSimTarget(simW, simH)];
+        let currentRT = 0;
+
+        // Scéna pro fyzikální krok (full-screen quad)
+        const simScene = new THREE.Scene();
+        const simCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        // Hlavní scéna pro finální vykreslení Liquid Glass
+        const scene = new THREE.Scene();
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        // --- 3. FYZIKÁLNÍ SHADER (2D Wave Equation + Damped Spring Oscillator) ---
+        const quadVertexShader = `
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                gl_Position = vec4(position.xy, 0.0, 1.0);
             }
         `;
 
-        const fragmentShader = `
-            uniform sampler2D uImage;      // Hlavní obrázek
-            uniform sampler2D uDisplacement; // Naše trail textura
-            uniform vec2 uResolution;
-            uniform vec2 uImageRes;
-            uniform float uVelo;           // Rychlost myši (pro intenzitu)
+        const simFragmentShader = `
+            precision highp float;
+
+            uniform sampler2D uPrev;       // R = height, G = velocity
+            uniform vec2 uTexelSize;       // 1.0 / simResolution
+            uniform vec2 uResolution;      // window aspect correction
+            uniform float uDt;
+            uniform float uSpring;
+            uniform float uWave;
+            uniform float uDamping;
+
+            uniform vec2 uMouse;           // aktuální myš v UV (0..1)
+            uniform vec2 uPrevMouse;       // předchozí myš v UV
+            uniform float uMouseActive;    // 0 nebo 1
+            uniform float uMouseSpeed;     // rychlost pohybu myši
+            uniform float uSplash;         // jednorázový impuls (klik)
 
             varying vec2 vUv;
 
-            // Funkce pro zachování poměru stran obrázku (Cover size)
-            vec2 cover(vec2 uv, vec2 resolution, vec2 texResolution) {
-                vec2 s = resolution; 
-                vec2 i = texResolution; 
-                float rs = s.x / s.y;
-                float ri = i.x / i.y;
-                vec2 new = rs < ri ? vec2(i.x * s.y / i.y, s.y) : vec2(s.x, i.y * s.x / i.x);
-                vec2 offset = (rs < ri ? vec2((new.x - s.x) / 2.0, 0.0) : vec2(0.0, (new.y - s.y) / 2.0)) / new;
-                vec2 uv_c = uv * s / new + offset;
-                return uv_c;
+            // Nejkratší vzdálenost bodu od úsečky (pro plynulou stopu bez mezer)
+            float distToSegment(vec2 p, vec2 a, vec2 b) {
+                vec2 pa = p - a;
+                vec2 ba = b - a;
+                float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+                return length(pa - ba * h);
             }
 
             void main() {
-                // 1. Získáme UV souřadnice opravené o poměr stran
-                vec2 uv = cover(vUv, uResolution, uImageRes);
+                vec4 state = texture2D(uPrev, vUv);
+                float h = state.r;
+                float v = state.g;
 
-                // 2. Načteme hodnotu deformace z trail textury
-                vec4 displacement = texture2D(uDisplacement, vUv);
-                
-                // Theta je úhel deformace. Čím světlejší trail, tím větší deformace.
-                float theta = displacement.r * 2.0 * 3.14159; 
-                
-                // Síla efektu
-                vec2 dir = vec2(sin(theta), cos(theta));
-                
-                // 3. RGB Shift (Chromatic Aberration)
-                // Každý barevný kanál načteme z trochu jiného místa
-                // displacement.r ovládá sílu deformace
-                
-                float strength = displacement.r * 0.08; // Jak moc se to vlní
+                // 9-bodový izotropní Laplacian (kruhové vlny místo čtvercových)
+                vec2 dx = vec2(uTexelSize.x, 0.0);
+                vec2 dy = vec2(0.0, uTexelSize.y);
 
-                float r = texture2D(uImage, uv + dir * strength).r;
-                float g = texture2D(uImage, uv + dir * strength * 0.5).g; // Zelená se hýbe méně
-                float b = texture2D(uImage, uv + dir * strength * 0.2).b; // Modrá skoro vůbec
+                float hL = texture2D(uPrev, vUv - dx).r;
+                float hR = texture2D(uPrev, vUv + dx).r;
+                float hT = texture2D(uPrev, vUv + dy).r;
+                float hB = texture2D(uPrev, vUv - dy).r;
 
-                gl_FragColor = vec4(r, g, b, 1.0);
+                float hTL = texture2D(uPrev, vUv - dx + dy).r;
+                float hTR = texture2D(uPrev, vUv + dx + dy).r;
+                float hBL = texture2D(uPrev, vUv - dx - dy).r;
+                float hBR = texture2D(uPrev, vUv + dx - dy).r;
+
+                float neighborAvg = 0.2 * (hL + hR + hT + hB) + 0.05 * (hTL + hTR + hBL + hBR);
+                float laplacian = neighborAvg - h;
+
+                // Fyzika pružiny + vlnové rovnice:
+                // 1) Povrchové napětí / vlna táhne bod k průměru sousedů
+                // 2) Elastická pružina (Hooke) táhne bod zpět do klidové roviny (h = 0)
+                float waveForce = uWave * laplacian * 280.0;
+                float springForce = -uSpring * h;
+                float accel = waveForce + springForce;
+
+                // Symplectic Euler integrace
+                v += accel * uDt;
+                v *= pow(uDamping, uDt * 60.0);
+                h += v * uDt;
+
+                // Jemné pohlcení vln na okrajích obrazovky (absorbing boundary)
+                vec2 edge = min(vUv, 1.0 - vUv);
+                float borderMask = smoothstep(0.0, 0.04, min(edge.x, edge.y));
+                h *= mix(0.92, 1.0, borderMask);
+                v *= mix(0.92, 1.0, borderMask);
+
+                // Interakce myší (korekce poměru stran, aby byla kapka kulatá)
+                float aspect = uResolution.x / uResolution.y;
+                vec2 pAspect = vec2(vUv.x * aspect, vUv.y);
+                vec2 mAspect = vec2(uMouse.x * aspect, uMouse.y);
+                vec2 pmAspect = vec2(uPrevMouse.x * aspect, uPrevMouse.y);
+
+                if (uMouseActive > 0.5) {
+                    float d = distToSegment(pAspect, pmAspect, mAspect);
+                    float radius = mix(0.032, 0.065, clamp(uMouseSpeed * 12.0, 0.0, 1.0));
+                    if (d < radius) {
+                        // Hladký Gaussův/kubický profil impulsu
+                        float falloff = smoothstep(radius, 0.0, d);
+                        falloff = falloff * falloff;
+                        // Tlačíme kapalinu dolů -> vznikne vlna a zpětné odpružení nahoru
+                        float impulse = -falloff * (0.45 + min(uMouseSpeed * 38.0, 2.2));
+                        v += impulse * 18.0 * uDt;
+                    }
+                }
+
+                // Kliknutí / tapnutí vytvoří silnou kapku
+                if (uSplash > 0.01) {
+                    float dc = length(pAspect - mAspect);
+                    float rSplash = 0.085;
+                    if (dc < rSplash) {
+                        float f = smoothstep(rSplash, 0.0, dc);
+                        v -= f * f * uSplash * 4.5;
+                    }
+                }
+
+                // Bezpečnostní clamp proti numerické explozi
+                h = clamp(h, -2.5, 2.5);
+                v = clamp(v, -12.0, 12.0);
+
+                gl_FragColor = vec4(h, v, 0.0, 1.0);
             }
         `;
 
-        // Načtení obrázku (Placeholder - stylová architektura nebo abstrakt)
+        const simMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                uPrev: { value: null },
+                uTexelSize: { value: new THREE.Vector2(1 / simW, 1 / simH) },
+                uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                uDt: { value: 1 / 60 },
+                uSpring: { value: params.spring },
+                uWave: { value: params.wave },
+                uDamping: { value: params.damping },
+                uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+                uPrevMouse: { value: new THREE.Vector2(0.5, 0.5) },
+                uMouseActive: { value: 0 },
+                uMouseSpeed: { value: 0 },
+                uSplash: { value: 0 }
+            },
+            vertexShader: quadVertexShader,
+            fragmentShader: simFragmentShader
+        });
+
+        const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), simMaterial);
+        simScene.add(simQuad);
+
+        // --- 4. OPTICKÝ SHADER (Snellův zákon + Reálná disperze + Fresnel + Specular) ---
+        const displayFragmentShader = `
+            precision highp float;
+
+            uniform sampler2D uImage;
+            uniform sampler2D uHeightMap;
+            uniform vec2 uResolution;
+            uniform vec2 uImageRes;
+            uniform vec2 uSimTexel;
+            uniform float uIOR;
+            uniform float uDispersion;
+            uniform float uDepth;
+
+            varying vec2 vUv;
+
+            vec2 cover(vec2 uv, vec2 resolution, vec2 texResolution) {
+                vec2 s = resolution;
+                vec2 i = texResolution;
+                float rs = s.x / s.y;
+                float ri = i.x / i.y;
+                vec2 newSize = rs < ri ? vec2(i.x * s.y / i.y, s.y) : vec2(s.x, i.y * s.x / i.x);
+                vec2 offset = (rs < ri ? vec2((newSize.x - s.x) / 2.0, 0.0) : vec2(0.0, (newSize.y - s.y) / 2.0)) / newSize;
+                return uv * s / newSize + offset;
+            }
+
+            // Vzorkování výšky hladiny
+            float sampleH(vec2 uv) {
+                return texture2D(uHeightMap, uv).r;
+            }
+
+            // Vypočítá refraktované UV podle Snellova zákona pro daný index lomu (IOR)
+            vec2 refractUV(vec2 baseUv, vec3 viewDir, vec3 normal, float ior, float thickness) {
+                float eta = 1.0 / ior;
+                vec3 refracted = refract(viewDir, normal, eta);
+                // Projekce paprsku na pozadí ve vzdálenosti "thickness"
+                vec2 offset = refracted.xy / max(abs(refracted.z), 0.15) * thickness;
+                return clamp(baseUv + offset, 0.001, 0.999);
+            }
+
+            void main() {
+                vec2 bgUv = cover(vUv, uResolution, uImageRes);
+
+                // 1. Výpočet normály povrchu z výškového pole (centrální diference)
+                vec2 sx = vec2(uSimTexel.x * 1.5, 0.0);
+                vec2 sy = vec2(0.0, uSimTexel.y * 1.5);
+
+                float hC = sampleH(vUv);
+                float hL = sampleH(vUv - sx);
+                float hR = sampleH(vUv + sx);
+                float hB = sampleH(vUv - sy);
+                float hT = sampleH(vUv + sy);
+
+                float dHx = (hR - hL) * 0.5;
+                float dHy = (hT - hB) * 0.5;
+
+                // Normalizace sklonu hladiny -> 3D normála skla
+                float slopeScale = 2.6;
+                vec3 normal = normalize(vec3(-dHx * slopeScale, -dHy * slopeScale, 1.0));
+
+                // Pohledový paprsek (mírně perspektivní od středu obrazovky)
+                vec2 centered = (vUv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
+                vec3 viewDir = normalize(vec3(centered * 0.25, -1.0));
+
+                // Tloušťka média se mění podle výšky vlny (čočkový efekt)
+                float thickness = uDepth * (1.0 + hC * 0.65);
+
+                // 2. REÁLNÁ CHROMATICKÁ ABERACE (Spektrální disperze)
+                // Každá vlnová délka má vlastní IOR podle Cauchyho disperze:
+                // Červená se láme nejméně, fialová/modrá nejvíce.
+                // 5 spektrálních vzorků vytvoří plynulý hranolový přechod bez RGB duchů.
+                vec2 uvR  = refractUV(bgUv, viewDir, normal, uIOR - uDispersion * 1.00, thickness);
+                vec2 uvY  = refractUV(bgUv, viewDir, normal, uIOR - uDispersion * 0.35, thickness);
+                vec2 uvG  = refractUV(bgUv, viewDir, normal, uIOR,                      thickness);
+                vec2 uvC  = refractUV(bgUv, viewDir, normal, uIOR + uDispersion * 0.45, thickness);
+                vec2 uvB  = refractUV(bgUv, viewDir, normal, uIOR + uDispersion * 1.15, thickness);
+
+                vec3 cR = texture2D(uImage, uvR).rgb;
+                vec3 cY = texture2D(uImage, uvY).rgb;
+                vec3 cG = texture2D(uImage, uvG).rgb;
+                vec3 cC = texture2D(uImage, uvC).rgb;
+                vec3 cB = texture2D(uImage, uvB).rgb;
+
+                // Spektrální vážení do výsledné RGB barvy
+                vec3 refractedColor = vec3(
+                    cR.r * 0.65 + cY.r * 0.35,
+                    cY.g * 0.22 + cG.g * 0.56 + cC.g * 0.22,
+                    cC.b * 0.35 + cB.b * 0.65
+                );
+
+                // 3. FRESNELŮV JEV (Schlickova aproximace)
+                // Na strmých hranách vln se sklo chová více jako zrcadlo
+                float f0 = pow((1.0 - uIOR) / (1.0 + uIOR), 2.0);
+                float cosTheta = clamp(dot(-viewDir, normal), 0.0, 1.0);
+                float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
+
+                // Odraz virtuálního studia / oblohy
+                vec3 reflDir = reflect(viewDir, normal);
+                float skyGrad = smoothstep(-0.2, 0.8, reflDir.y);
+                vec3 envColor = mix(vec3(0.08, 0.12, 0.18), vec3(0.75, 0.88, 1.0), skyGrad);
+
+                // 4. SPECULAR ODLESKY (mokré sklo)
+                vec3 lightDir1 = normalize(vec3(0.55, 0.75, 0.85));
+                vec3 lightDir2 = normalize(vec3(-0.7, -0.4, 0.6));
+                vec3 halfVec1 = normalize(lightDir1 - viewDir);
+                vec3 halfVec2 = normalize(lightDir2 - viewDir);
+
+                float spec1 = pow(max(dot(normal, halfVec1), 0.0), 140.0) * 0.95;
+                float spec2 = pow(max(dot(normal, halfVec2), 0.0), 60.0) * 0.28;
+
+                // 5. KAUSTIKA / ZAHUŠTĚNÍ SVĚTLA (zakřivení hladiny soustřeďuje světlo)
+                float curvature = (hL + hR + hT + hB) * 0.25 - hC;
+                float caustic = clamp(curvature * 1.4, -0.12, 0.35);
+
+                // Finální kompozice Liquid Glass
+                vec3 color = mix(refractedColor * (1.0 + caustic), envColor, fresnel * 0.75);
+                color += vec3(1.0, 0.98, 0.95) * spec1;
+                color += vec3(0.7, 0.88, 1.0) * spec2;
+
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        let displayMaterial = null;
         const loader = new THREE.TextureLoader();
-        // Používám kvalitní obrázek z Unsplash
         const imgUrl = 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop';
-        
+
         loader.load(imgUrl, (texture) => {
             document.getElementById('loading').style.display = 'none';
-
             texture.minFilter = THREE.LinearFilter;
             texture.magFilter = THREE.LinearFilter;
 
-            const material = new THREE.ShaderMaterial({
+            displayMaterial = new THREE.ShaderMaterial({
                 uniforms: {
                     uImage: { value: texture },
-                    uDisplacement: { value: trailTexture },
+                    uHeightMap: { value: simRT[0].texture },
                     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
                     uImageRes: { value: new THREE.Vector2(texture.image.width, texture.image.height) },
-                    uVelo: { value: 0 }
+                    uSimTexel: { value: new THREE.Vector2(1 / simW, 1 / simH) },
+                    uIOR: { value: params.ior },
+                    uDispersion: { value: params.dispersion },
+                    uDepth: { value: params.depth }
                 },
-                vertexShader: vertexShader,
-                fragmentShader: fragmentShader
+                vertexShader: quadVertexShader,
+                fragmentShader: displayFragmentShader
             });
 
-            // Plane přes celou obrazovku
-            const geometry = new THREE.PlaneGeometry(window.innerWidth, window.innerHeight);
-            const plane = new THREE.Mesh(geometry, material);
+            const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), displayMaterial);
             scene.add(plane);
         });
 
-        // --- 4. LOGIKA KRESLENÍ STOPY (The Liquid Logic) ---
-        
-        // Převedení souřadnic myši na souřadnice canvasu
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
+        // --- 5. OVLÁDÁNÍ MYŠÍ / DOTYKEM ---
+        const mouse = new THREE.Vector2(0.5, 0.5);
+        const prevMouse = new THREE.Vector2(0.5, 0.5);
+        let mouseActive = false;
+        let pendingSplash = 0;
+
+        function updatePointer(clientX, clientY) {
+            mouse.x = clientX / window.innerWidth;
+            mouse.y = 1.0 - clientY / window.innerHeight;
+            if (!mouseActive) {
+                prevMouse.copy(mouse);
+                mouseActive = true;
+            }
+        }
+
+        window.addEventListener('mousemove', (e) => updatePointer(e.clientX, e.clientY));
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#ui')) return;
+            updatePointer(e.clientX, e.clientY);
+            pendingSplash = 1.4;
         });
-        
+        window.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#ui')) return;
+            updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+            pendingSplash = 1.4;
+        }, { passive: true });
         window.addEventListener('touchmove', (e) => {
-            mouse.x = e.touches[0].clientX;
-            mouse.y = e.touches[0].clientY;
+            updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+
+        // --- 6. UI LOGIKA ---
+        const ui = document.getElementById('ui');
+        const uiToggle = document.getElementById('uiToggle');
+        const uiToggleLabel = document.getElementById('uiToggleLabel');
+        uiToggle.addEventListener('click', () => {
+            ui.classList.toggle('collapsed');
+            uiToggleLabel.textContent = ui.classList.contains('collapsed') ? 'Show' : 'Hide';
         });
 
-        // Funkce pro vykreslování "kapek" do neviditelného canvasu
-        function updateTrail() {
-            // 1. Fade out efekt - staré stopy pomalu mizí
-            // Kreslíme poloprůhledný černý obdélník přes celý canvas
-            trailCtx.globalCompositeOperation = 'source-over';
-            trailCtx.fillStyle = 'rgba(0, 0, 0, 0.05)'; // 0.05 určuje jak rychle se kapalina "uklidní"
-            trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
-
-            // 2. Kreslení nové stopy
-            // Přepočet souřadnic myši na malý canvas
-            const x = mouse.x * (trailCanvas.width / window.innerWidth);
-            const y = (window.innerHeight - mouse.y) * (trailCanvas.height / window.innerHeight); // Invert Y pro canvas 2d
-            
-            // Rychlost myši určuje velikost štětce
-            const speed = mouse.distanceTo(lastMouse);
-            targetSpeed += (speed - targetSpeed) * 0.1;
-
-            const radius = Math.max(20, Math.min(targetSpeed * 2, 60)); // Dynamická velikost
-
-            // Kreslíme "světlo" (bílou barvu), která v shaderu znamená deformaci
-            const gradient = trailCtx.createRadialGradient(x, trailCanvas.height - y, radius * 0.2, x, trailCanvas.height - y, radius);
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)'); // Uprostřed silná deformace
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Na kraji žádná
-
-            trailCtx.globalCompositeOperation = 'screen'; // Přičítání světla
-            trailCtx.fillStyle = gradient;
-            trailCtx.beginPath();
-            trailCtx.arc(x, trailCanvas.height - y, radius, 0, Math.PI * 2);
-            trailCtx.fill();
-
-            // Uložení poslední pozice
-            lastMouse.copy(mouse);
-            
-            // Řekneme Three.js, že se textura změnila
-            trailTexture.needsUpdate = true;
+        const sliderKeys = ['spring', 'wave', 'damping', 'ior', 'dispersion', 'depth'];
+        function syncUI() {
+            for (const key of sliderKeys) {
+                const input = document.getElementById(key);
+                const label = document.getElementById('val-' + key);
+                input.value = params[key];
+                label.textContent = key === 'damping' ? params[key].toFixed(3) : params[key].toFixed(2);
+            }
         }
 
-        // --- 5. RENDER LOOP ---
-        function animate() {
+        for (const key of sliderKeys) {
+            document.getElementById(key).addEventListener('input', (e) => {
+                params[key] = parseFloat(e.target.value);
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                syncUI();
+            });
+        }
+
+        document.querySelectorAll('.preset-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const p = presets[btn.dataset.preset];
+                Object.assign(params, p);
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                syncUI();
+            });
+        });
+
+        // --- 7. RENDER & PHYSICS LOOP ---
+        let lastTime = performance.now();
+
+        function animate(now) {
             requestAnimationFrame(animate);
-            updateTrail();
-            renderer.render(scene, camera);
+
+            const dt = Math.min((now - lastTime) / 1000, 1 / 30);
+            lastTime = now;
+
+            const speed = mouse.distanceTo(prevMouse);
+
+            // Aktualizace fyzikálních uniforem
+            simMaterial.uniforms.uDt.value = dt;
+            simMaterial.uniforms.uSpring.value = params.spring;
+            simMaterial.uniforms.uWave.value = params.wave;
+            simMaterial.uniforms.uDamping.value = params.damping;
+            simMaterial.uniforms.uMouse.value.copy(mouse);
+            simMaterial.uniforms.uPrevMouse.value.copy(prevMouse);
+            simMaterial.uniforms.uMouseActive.value = mouseActive ? 1.0 : 0.0;
+            simMaterial.uniforms.uMouseSpeed.value = speed;
+            simMaterial.uniforms.uSplash.value = pendingSplash;
+
+            // Ping-pong krok fyziky (2 substeps pro stabilitu při vyšším pružení)
+            const substeps = 2;
+            simMaterial.uniforms.uDt.value = dt / substeps;
+            for (let i = 0; i < substeps; i++) {
+                const readRT = simRT[currentRT];
+                const writeRT = simRT[1 - currentRT];
+                simMaterial.uniforms.uPrev.value = readRT.texture;
+                if (i > 0) simMaterial.uniforms.uSplash.value = 0.0;
+
+                renderer.setRenderTarget(writeRT);
+                renderer.render(simScene, simCamera);
+                currentRT = 1 - currentRT;
+            }
+            renderer.setRenderTarget(null);
+
+            pendingSplash = 0.0;
+            prevMouse.copy(mouse);
+
+            // Finální vykreslení Liquid Glass
+            if (displayMaterial) {
+                displayMaterial.uniforms.uHeightMap.value = simRT[currentRT].texture;
+                displayMaterial.uniforms.uIOR.value = params.ior;
+                displayMaterial.uniforms.uDispersion.value = params.dispersion;
+                displayMaterial.uniforms.uDepth.value = params.depth;
+                renderer.render(scene, camera);
+            }
         }
 
-        animate();
+        requestAnimationFrame(animate);
 
-        // --- RESIZE ---
+        // --- 8. RESIZE ---
         window.addEventListener('resize', () => {
             const w = window.innerWidth;
             const h = window.innerHeight;
-            
             renderer.setSize(w, h);
-            
-            camera.left = -w / 2;
-            camera.right = w / 2;
-            camera.top = h / 2;
-            camera.bottom = -h / 2;
-            camera.updateProjectionMatrix();
 
-            // Update shaderu
-            if(scene.children[0]) {
-                const mesh = scene.children[0];
-                mesh.geometry = new THREE.PlaneGeometry(w, h);
-                mesh.material.uniforms.uResolution.value.x = w;
-                mesh.material.uniforms.uResolution.value.y = h;
+            simW = Math.max(128, Math.round(w * SIM_SCALE));
+            simH = Math.max(128, Math.round(h * SIM_SCALE));
+            simRT[0].dispose();
+            simRT[1].dispose();
+            simRT = [createSimTarget(simW, simH), createSimTarget(simW, simH)];
+
+            simMaterial.uniforms.uTexelSize.value.set(1 / simW, 1 / simH);
+            simMaterial.uniforms.uResolution.value.set(w, h);
+
+            if (displayMaterial) {
+                displayMaterial.uniforms.uResolution.value.set(w, h);
+                displayMaterial.uniforms.uSimTexel.value.set(1 / simW, 1 / simH);
             }
         });
-
     </script>
 </body>
 </html>
